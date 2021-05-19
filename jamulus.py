@@ -502,9 +502,17 @@ class JamulusConnector:
     def __init__(self, host="", port=DEFAULT_PORT, debug=False, log_audio=True):
         self.debug = debug
         self.log_audio = log_audio
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind((host, port))
-        print("listening to port {}".format(port))
+        self.host = host
+        self.port = port
+        if self.port is not None:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            print("listening to port {}".format(self.port))
+            self.sock.bind((self.host, self.port))
+
+    def close(self):
+        if self.port is not None:
+            print("closing socket")
+            self.sock.close()
 
     def calc_crc(self, data):
         """
@@ -559,29 +567,36 @@ class JamulusConnector:
         """
         data = b""
         for key, format_char in format:
-            if format_char == "A":
-                # A = 4 bytes / IPv4 address
-                ip = socket.inet_aton(values[key])
-                data += struct.pack("{}{}".format(mode, "L"), struct.unpack("!L", ip)[0])
-            elif format_char in ["U", "V", "v"]:
-                # U = 1 byte length n + n bytes UTF-8 string
-                # V = 2 bytes length n + n bytes UTF-8 string
-                # v = 2 bytes length n + n bytes data
-                utf8_enc = True if format_char in ["U", "V"] else False
-                value = values[key].encode() if utf8_enc else values[key]
-
-                length_format = "B" if format_char == "U" else "H"
-                length = len(value)
-
-                data += struct.pack("{}{}{}{}".format(mode, length_format, length, "s"), length, value)
-            elif format_char == "z":
-                # z = all remaining data
+            try:
                 value = values[key]
-                length = len(value)
-                data += struct.pack("{}{}".format(length, "s"), value)
-            else:
-                # standard format characters
-                data += struct.pack("{}{}".format(mode, format_char), values[key])
+            except KeyError as error:
+                raise ValueError("error packing '{}': missing key in values".format(key))
+
+            try:
+                if format_char == "A":
+                    # A = 4 bytes / IPv4 address
+                    ip = socket.inet_aton(value)
+                    data += struct.pack("{}{}".format(mode, "L"), struct.unpack("!L", ip)[0])
+                elif format_char in ["U", "V", "v"]:
+                    # U = 1 byte length n + n bytes UTF-8 string
+                    # V = 2 bytes length n + n bytes UTF-8 string
+                    # v = 2 bytes length n + n bytes data
+                    if format_char in ["U", "V"]:
+                        value = value.encode()
+
+                    length_format = "B" if format_char == "U" else "H"
+                    length = len(value)
+
+                    data += struct.pack("{}{}{}{}".format(mode, length_format, length, "s"), length, value)
+                elif format_char == "z":
+                    # z = all remaining data
+                    length = len(value)
+                    data += struct.pack("{}{}".format(length, "s"), value)
+                else:
+                    # standard format characters
+                    data += struct.pack("{}{}".format(mode, format_char), value)
+            except struct.error as error:
+                raise ValueError("error packing '{}': {}".format(key, error))
 
         return data
 
@@ -608,8 +623,8 @@ class JamulusConnector:
         """
         values = {}
 
-        try:
-            for key, format_char in format:
+        for key, format_char in format:
+            try:
                 if format_char == "A":
                     # A = 4 bytes / IPv4 address
                     ip = struct.pack("!L", *struct.unpack_from("{}{}".format(mode, "L"), data, offset))
@@ -638,8 +653,8 @@ class JamulusConnector:
                     (values[key],) = struct.unpack_from("{}{}".format(mode, format_char), data, offset)
                     offset += struct.calcsize("{}{}".format(mode, format_char))
 
-        except struct.error:
-            return {}, 0
+            except struct.error as error:
+                raise ValueError("error unpacking '{}': {}".format(key, error))
 
         return values, offset
 
@@ -699,8 +714,7 @@ class JamulusConnector:
             values, offset = self.unpack(format, data, offset)
 
         if offset != len(data):
-            print("invalid message length ({}/{}) {}".format(offset, len(data), values))
-            return None
+            raise ValueError("invalid message length ({}/{}) {}".format(offset, len(data), values))
 
         return values
 
@@ -766,22 +780,19 @@ class JamulusConnector:
         # calculate crc from data
         crc_check = self.calc_crc(data)
         if crc_values["crc"] != crc_check:
-            print("invalid message crc ({}/{}) {}".format(crc_values["crc"], crc_check, data))
-            return "INVALID", None, None
+            raise ValueError("invalid message crc ({}/{})".format(crc_values["crc"], crc_check))
 
         # unpack main frame
         main_values, offset = self.unpack(FORMAT["MAIN_FRAME"], data)
 
         # verify there's no data left
         if offset != len(data):
-            print("invalid message length ({}/{}) {}".format(offset, len(data), data))
-            return "INVALID", None, None
+            raise ValueError("invalid message length ({}/{}) {}".format(offset, len(data)))
 
         # verify ID is valid
         id = main_values["id"]
         if id not in MSG_KEYS.keys() or id == 0:
-            print("invalid message ID ({}) {}".format(id, data))
-            return "INVALID", None, None
+            raise ValueError("invalid message ID ({})".format(id))
 
         key = MSG_KEYS[id]
         prot = PROT[key]
@@ -837,7 +848,7 @@ class JamulusConnector:
             True for received / False for sent
         """
         if key != "AUDIO" or self.log_audio:
-            output = "{} {} #{}: {} ({})".format(
+            output = "{} {} #{} {} ({})".format(
                 addr,
                 " >" if recv else "< ",
                 count,
@@ -912,24 +923,26 @@ class JamulusConnector:
         except socket.timeout:
             raise TimeoutError
 
-        # detect protocol messages
-        if len(data) >= 9 and data[:2] == b"\x00\x00":
-            key, count, values = self.main_unpack(data)
-            self.log_message(addr, key, count=count, length=len(data), values=values, recv=True)
-            if ackn:
-                self.send_ack(addr, key, count)
+        key = "INVALID"
+        count = None
+        values = None
 
-        # assume audio messages
-        elif len(data) >= 1:
-            key = "AUDIO"
-            count = None
-            values = self.unpack(FORMAT["AUDIO_FRAME"], data)
-            self.log_message(addr, key, length=len(data), values=values, recv=True)
+        try:
+            # detect protocol messages
+            if len(data) >= 9 and data[:2] == b"\x00\x00":
+                key, count, values = self.main_unpack(data)
+                self.log_message(addr, key, count=count, length=len(data), values=values, recv=True)
+                if ackn:
+                    self.send_ack(addr, key, count)
 
-        else:
-            key = "INVALID"
-            count = None
-            values = None
+            # assume audio messages
+            elif len(data) >= 1:
+                key = "AUDIO"
+                values = self.unpack(FORMAT["AUDIO_FRAME"], data)[0]
+                self.log_message(addr, key, length=len(data), values=values, recv=True)
+
+        except ValueError as error:
+            print("error decoding message from {}: {} - {}".format(addr, error, data))
 
         return (addr, key, count, values)
 
