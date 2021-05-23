@@ -113,21 +113,11 @@ class ActionScheduler:
 
 
 def argument_parser():
-    def server_argument(string):
-        server = string.split(":")
-        if len(server) == 1:
-            server.append(jamulus.DEFAULT_PORT)
-        elif len(server) == 2:
-            server[1] = int(server[1])
-        else:
-            raise ValueError
-        return tuple(server)
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=jamulus.DEFAULT_PORT, help="local port number")
     parser.add_argument(
         "--centralserver",
-        type=server_argument,
+        type=jamulus.server_argument,
         required=True,
         action="extend",
         nargs="+",

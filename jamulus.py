@@ -948,5 +948,17 @@ class JamulusConnector:
         return (addr, key, count, values)
 
 
+def server_argument(string):
+    server = string.split(":")
+    if len(server) == 2:
+        port = int(server[1])
+    elif len(server) == 1:
+        port = DEFAULT_PORT
+    else:
+        raise ValueError
+    host = socket.gethostbyname(server[0])
+    return host, port
+
+
 def silent_audio(base_netw_size):
     return {"data": b"\x00\xff\xfe" + b"\x00" * (base_netw_size - 3)}

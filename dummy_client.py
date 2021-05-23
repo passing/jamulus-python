@@ -12,21 +12,11 @@ JITT_BUF_SIZE = 5
 
 
 def argument_parser():
-    def server_argument(string):
-        server = string.split(":")
-        if len(server) == 1:
-            server.append(jamulus.DEFAULT_PORT)
-        elif len(server) == 2:
-            server[1] = int(server[1])
-        else:
-            raise ValueError
-        return tuple(server)
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=jamulus.DEFAULT_PORT, help="local port number")
     parser.add_argument(
         "--server",
-        type=server_argument,
+        type=jamulus.server_argument,
         required=True,
         help="central server to register on",
     )
@@ -56,6 +46,10 @@ def main():
 
     while True:
         addr, key, count, values = jc.recvfrom()
+
+        if addr != args.server:
+            # drop messages not coming from the server
+            continue
 
         if key == "AUDIO":
             jc.sendto(addr, "AUDIO", audio_values)
