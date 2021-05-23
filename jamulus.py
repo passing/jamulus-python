@@ -20,7 +20,7 @@ FORMAT = {
     # v = 2 bytes length n + n bytes data
     # z = all remaining data
     "MAIN_FRAME": (("tag", "H"), ("id", "H"), ("count", "B"), ("data", "v")),
-    "AUDIO_FRAME": (("monster", "B"), ("data", "z")),
+    "AUDIO_FRAME": (("data", "z"),),
     "CRC": (("crc", "H"),),
     "ACKN": (("id", "H"),),
     "SERVER_IP": (("ip", "A"),),
@@ -948,4 +948,4 @@ class JamulusConnector:
 
 
 def silent_audio(base_netw_size):
-    return {"monster": 0, "data": b"\xff\xfe" + b"\x00" * (base_netw_size - 3)}
+    return {"data": b"\x00\xff\xfe" + b"\x00" * (base_netw_size - 3)}
