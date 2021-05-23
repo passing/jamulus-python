@@ -499,7 +499,8 @@ OS_KEYS = {0: "Windows", 1: "MacOS", 2: "Linux", 3: "Android", 4: "iOS", 5: "Uni
 
 
 class JamulusConnector:
-    def __init__(self, host="", port=DEFAULT_PORT, debug=False, log_audio=True):
+    def __init__(self, host="", port=DEFAULT_PORT, log=True, debug=False, log_audio=True):
+        self.log = log
         self.debug = debug
         self.log_audio = log_audio
         self.host = host
@@ -847,7 +848,7 @@ class JamulusConnector:
         recv : bool
             True for received / False for sent
         """
-        if key != "AUDIO" or self.log_audio:
+        if self.log and (key != "AUDIO" or self.log_audio):
             output = "{} {} #{} {} ({})".format(
                 addr,
                 " >" if recv else "< ",

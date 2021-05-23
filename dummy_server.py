@@ -36,9 +36,9 @@ def argument_parser():
         help="print protocol data",
     )
     parser.add_argument(
-        "--hide-audio",
+        "--log-audio",
         action="store_true",
-        help="do not log audio messages",
+        help="log audio messages",
     )
 
     return parser.parse_args()
@@ -49,7 +49,7 @@ def main():
 
     args = argument_parser()
 
-    jc = jamulus.JamulusConnector(port=args.port, debug=args.debug, log_audio=not (args.hide_audio))
+    jc = jamulus.JamulusConnector(port=args.port, debug=args.debug, log_audio=args.log_audio)
 
     if args.centralserver:
         jc.sendto(
@@ -81,8 +81,6 @@ def main():
         }
     clients_pending = []
 
-    audio_values = jamulus.silent_audio(BASE_NETW_SIZE)
-
     while True:
         addr, key, count, values = jc.recvfrom()
 
@@ -101,6 +99,7 @@ def main():
                     {"string": "<b>Server Welcome Message:</b> This is a Test Server"},
                 )
 
+            audio_values = jamulus.silent_audio(len(values["data"]))
             jc.sendto(addr, "AUDIO", audio_values)
 
         elif key == "CHANNEL_INFOS":

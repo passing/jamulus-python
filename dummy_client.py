@@ -36,9 +36,9 @@ def argument_parser():
         help="print protocol data",
     )
     parser.add_argument(
-        "--hide-audio",
+        "--log-audio",
         action="store_true",
-        help="do not log audio messages",
+        help="log audio messages",
     )
 
     return parser.parse_args()
@@ -49,12 +49,10 @@ def main():
 
     args = argument_parser()
 
-    jc = jamulus.JamulusConnector(port=args.port, debug=args.debug, log_audio=not (args.hide_audio))
+    jc = jamulus.JamulusConnector(port=args.port, debug=args.debug, log_audio=args.log_audio)
 
     audio_values = jamulus.silent_audio(BASE_NETW_SIZE)
     jc.sendto(args.server, "AUDIO", audio_values)
-
-    audio_buffer = []
 
     while True:
         addr, key, count, values = jc.recvfrom()
