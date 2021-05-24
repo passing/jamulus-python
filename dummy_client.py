@@ -21,9 +21,9 @@ def argument_parser():
         help="central server to register on",
     )
     parser.add_argument(
-        "--debug",
+        "--log-data",
         action="store_true",
-        help="print protocol data",
+        help="log protocol data",
     )
     parser.add_argument(
         "--log-audio",
@@ -39,7 +39,7 @@ def main():
 
     args = argument_parser()
 
-    jc = jamulus.JamulusConnector(port=args.port, debug=args.debug, log_audio=args.log_audio)
+    jc = jamulus.JamulusConnector(port=args.port, log_data=args.log_data, log_audio=args.log_audio)
 
     audio_values = jamulus.silent_audio(BASE_NETW_SIZE)
     jc.sendto(args.server, "AUDIO", audio_values)

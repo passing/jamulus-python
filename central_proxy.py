@@ -139,9 +139,9 @@ def argument_parser():
         help="country IDs to filter",
     )
     parser.add_argument(
-        "--debug",
+        "--log-data",
         action="store_true",
-        help="print protocol data",
+        help="log protocol data",
     )
     return parser.parse_args()
 
@@ -154,7 +154,7 @@ def main():
     args = argument_parser()
 
     # create jamulus connector
-    jc = jamulus.JamulusConnector(port=args.port, debug=args.debug)
+    jc = jamulus.JamulusConnector(port=args.port, log_data=args.log_data)
 
     # create empty server list
     server_list = ServerList()

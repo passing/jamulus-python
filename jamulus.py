@@ -499,9 +499,9 @@ OS_KEYS = {0: "Windows", 1: "MacOS", 2: "Linux", 3: "Android", 4: "iOS", 5: "Uni
 
 
 class JamulusConnector:
-    def __init__(self, host="", port=DEFAULT_PORT, log=True, debug=False, log_audio=True):
+    def __init__(self, host="", port=DEFAULT_PORT, log=True, log_data=False, log_audio=True):
         self.log = log
-        self.debug = debug
+        self.log_data = log_data
         self.log_audio = log_audio
         self.host = host
         self.port = port
@@ -856,7 +856,7 @@ class JamulusConnector:
                 key,
                 length,
             )
-            if self.debug and key != "ACKN" and values is not None and len(values) > 0:
+            if self.log_data and key != "ACKN" and values is not None and len(values) > 0:
                 output += " {}".format(values)
             print(output)
 

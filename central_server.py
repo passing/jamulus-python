@@ -11,9 +11,9 @@ def argument_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=jamulus.DEFAULT_PORT, help="local port number")
     parser.add_argument(
-        "--debug",
+        "--log-data",
         action="store_true",
-        help="print protocol data",
+        help="log protocol data",
     )
     return parser.parse_args()
 
@@ -23,7 +23,7 @@ def main():
     args = argument_parser()
 
     # create jamulus connector
-    jc = jamulus.JamulusConnector(port=args.port, debug=args.debug)
+    jc = jamulus.JamulusConnector(port=args.port, log_data=args.log_data)
 
     # create empty server list
     server_list = {}
