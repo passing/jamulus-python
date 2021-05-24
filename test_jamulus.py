@@ -94,12 +94,12 @@ class Test_JamulusConnector(unittest.TestCase):
         self.assertEqual(data.hex(), "0000e903000400000000006f60")
 
     def test_main_unpack(self):
-        key, count, values = self.jc.main_unpack(bytearray.fromhex("0000ef0300000018cb"))
+        key, count, values = self.jc.main_unpack(bytearray.fromhex("0000ef0300000018cb"), ackn=False, addr=None)
         self.assertEqual(key, "CLM_REQ_SERVER_LIST")
         self.assertEqual(count, 0)
         self.assertEqual(values, {})
 
-        key, count, values = self.jc.main_unpack(bytearray.fromhex("0000e903000400000000006f60"))
+        key, count, values = self.jc.main_unpack(bytearray.fromhex("0000e903000400000000006f60"), ackn=False, addr=None)
         self.assertEqual(key, "CLM_PING_MS")
         self.assertEqual(count, 0)
         self.assertEqual(values, {"time": 0})

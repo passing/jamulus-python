@@ -757,7 +757,7 @@ class JamulusConnector:
 
         return data
 
-    def main_unpack(self, data):
+    def main_unpack(self, data, ackn, addr):
         """
         Decode a Jamulus 'main frame'
 
@@ -765,6 +765,10 @@ class JamulusConnector:
         ----------
         data : bytearray
             encoded data
+        ackn : bool
+            send acknowledgement messages when needed
+        addr : tuple(str, int)
+            host/port for sending the acknoledgement
 
         Returns
         -------
@@ -785,13 +789,18 @@ class JamulusConnector:
 
         # unpack main frame
         main_values, offset = self.unpack(FORMAT["MAIN_FRAME"], data)
+        id = main_values["id"]
+        count = main_values["count"]
 
         # verify there's no data left
         if offset != len(data):
             raise ValueError("invalid message length ({}/{}) {}".format(offset, len(data)))
 
+        # send acknowledgement
+        if ackn:
+            self.send_ack(addr, id, count)
+
         # verify ID is valid
-        id = main_values["id"]
         if id not in MSG_KEYS.keys() or id == 0:
             raise ValueError("invalid message ID ({})".format(id))
 
@@ -803,24 +812,23 @@ class JamulusConnector:
         # unpack data
         values = self.prot_unpack(format, main_values["data"], repeat=repeat)
 
-        return key, main_values["count"], values
+        return key, count, values
 
-    def send_ack(self, addr, key, count):
+    def send_ack(self, addr, id, count):
         """
         Send an acknowledgement message
 
-        acknowledgement message is only sent if required for the given key
+        acknowledgement message is only sent if required for the given ID
 
         Parameters
         ----------
         addr : tuple(str, int)
             host/port to send to
-        key : str
-            key of message that gets acknowledged
+        id : int
+            ID of message that gets acknowledged
         count : int
-            count of the message that gets acknowledged
+            count of message that gets acknowledged
         """
-        id = MSG_IDS.get(key, 0)
         if id > MSG_IDS["ACKN"] and id < MSG_IDS["CLM_START"]:
             self.sendto(
                 addr=addr,
@@ -856,7 +864,7 @@ class JamulusConnector:
                 key,
                 length,
             )
-            if self.log_data and key != "ACKN" and values is not None and len(values) > 0:
+            if self.log_data and values is not None and len(values) > 0:
                 output += " {}".format(values)
             print(output)
 
@@ -931,10 +939,8 @@ class JamulusConnector:
         try:
             # detect protocol messages
             if len(data) >= 9 and data[:2] == b"\x00\x00":
-                key, count, values = self.main_unpack(data)
+                key, count, values = self.main_unpack(data, ackn, addr)
                 self.log_message(addr, key, count=count, length=len(data), values=values, recv=True)
-                if ackn:
-                    self.send_ack(addr, key, count)
 
             # assume audio messages
             elif len(data) >= 1:
